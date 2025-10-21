@@ -1,0 +1,42 @@
+{
+  "metadata": {
+    "formatVersion": 4.5,
+    "type": "Object",
+    "generator": "ObjectExporter"
+  },
+  "geometries": [
+    {
+      "uuid": "...",
+      "type": "BufferGeometry",
+      "data": {
+        "attributes": {
+          "position": {
+            "itemSize": 3,
+            "type": "Float32Array",
+            "array": [
+              0.5, 0.5, 0.5, 
+              -0.5, 0.5, 0.5, 
+              ...
+            ]
+          },
+          "normal": { ... }
+        },
+        "index": { ... }
+      }
+    }
+  ],
+  "materials": [
+    {
+      "uuid": "...",
+      "type": "MeshBasicMaterial",
+      "color": 16711680,
+      "name": "RedMaterial"
+    }
+  ],
+  "object": {
+    "uuid": "...",
+    "type": "Mesh",
+    "geometry": "...",
+    "material": "..."
+  }
+}
