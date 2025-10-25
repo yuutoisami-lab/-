@@ -26,6 +26,13 @@
                 <button class="team-btn" onclick="setTeamCount(6)">6 チーム</button>
             </div>
         </section>
+        <section id="team-name-input" style="display:none;">
+            <p><a href="#" onclick="showTeamSelection(); return false;">&laquo; チーム数選択に戻る</a></p>
+            <h2>あなたのチーム名を入力してください</h2>
+            <p id="assigned-team-number-info" style="font-weight: bold; color: #007bff;"></p>
+            <input type="text" id="user-team-name" placeholder="チーム名 (例: トラベラーズ)" style="padding: 10px; width: 80%; max-width: 300px; margin-bottom: 10px;">
+            <button onclick="registerTeamName()" style="background-color: #28a745; color: white;">チーム名を登録して開始</button>
+        </section>
         <section id="rank-selection" style="display:none;">
             <p><a href="#" onclick="showTeamSelection(); return false;">&laquo; チーム選択に戻る</a></p>
             <h2>指名順位の選択 (1位〜7位)</h2>
