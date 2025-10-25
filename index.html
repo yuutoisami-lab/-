@@ -26,20 +26,18 @@
                 <button class="team-btn" onclick="setTeamCount(6)">6 チーム</button>
             </div>
         </section>
-        <section id="rank-selection">
+        <section id="rank-selection" style="display:none;">
+            <p><a href="#" onclick="showTeamSelection(); return false;">&laquo; チーム選択に戻る</a></p>
             <h2>指名順位の選択 (1位〜7位)</h2>
+    
+            <p id="rank-status-message" style="padding: 10px; border-radius: 4px; font-weight: bold; text-align: center;"></p> 
+    
             <div id="draft-ranks">
                 <button class="rank-btn" onclick="selectRank(1)">ドラフト 1 位</button>
                 <button class="rank-btn" onclick="selectRank(2)">ドラフト 2 位</button>
-                <button class="rank-btn" onclick="selectRank(3)">ドラフト 3 位</button>
-                <button class="rank-btn" onclick="selectRank(4)">ドラフト 4 位</button>
-                <button class="rank-btn" onclick="selectRank(5)">ドラフト 5 位</button>
-                <button class="rank-btn" onclick="selectRank(6)">ドラフト 6 位</button>
-                <button class="rank-btn" onclick="selectRank(7)">ドラフト 7 位</button>
-            </div>
+                </div>
             <p style="margin-top: 20px;">先に指名する順位を選択してください。</p>
         </section>
-
 
         <section id="draft-list-screen" style="display:none;">
             <p><a href="#" onclick="showRankSelection(); return false;">&laquo; 順位選択画面に戻る</a></p>
