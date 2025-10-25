@@ -1,81 +1,44 @@
-/* 基本的なリセットとフォント設定 */
-body {
-    font-family: 'Helvetica Neue', Arial, sans-serif;
-    margin: 0;
-    padding: 0;
-    background-color: #f4f7f6; /* 薄い背景色 */
-    color: #333;
-    line-height: 1.6;
-}
+/* --- 順位選択ボタンのスタイリング --- */
 
-header {
-    background-color: #007bff; /* メインカラー (青) */
-    color: white;
-    padding: 20px 0;
+#rank-selection {
     text-align: center;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-header h1 {
-    margin: 0;
-    font-size: 2.5em;
-}
-
-/* メインコンテンツのレイアウト */
-main {
-    padding: 20px;
-    max-width: 900px;
-    margin: 20px auto;
-    background-color: white;
+    padding: 40px 20px;
+    background-color: #f8f9fa;
     border-radius: 8px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e9ecef;
 }
 
-/* 候補者リストのスタイリング */
-#candidates {
-    list-style: none; /* デフォルトのリストマークを削除 */
-    padding: 0;
-}
-
-#candidates li {
-    background-color: #e9ecef; /* リスト項目の背景 */
-    margin: 10px 0;
-    padding: 15px;
-    border-radius: 4px;
-    font-size: 1.1em;
-    border-left: 5px solid #6c757d; /* 未指名のサイドバー */
-    transition: all 0.3s ease; /* スムーズなトランジション */
-}
-
-/* 🏆 指名された候補者用の特別なスタイル 🏆 */
-/* HTMLの <li> タグの data-status="drafted" に対応 */
-#candidates li[data-status="drafted"] {
-    background-color: #28a745; /* 成功を示す緑の背景 */
-    color: white; /* テキストを白に */
-    border-left: 5px solid #ffc107; /* 注目を集める黄色 */
-    font-weight: bold;
-    box-shadow: 0 2px 4px rgba(40, 167, 69, 0.4);
-}
-
-#candidates li[data-status="drafted"]::before {
-    content: "✅ 指名済み: "; /* プレフィックスを追加 */
-}
-
-/* フッターのスタイリング */
-footer {
-    text-align: center;
-    padding: 15px;
+#draft-ranks {
+    display: flex;
+    flex-wrap: wrap; /* ボタンが多ければ折り返す */
+    justify-content: center;
+    gap: 15px; /* ボタン間のスペース */
     margin-top: 30px;
-    background-color: #343a40; /* 濃い背景色 */
-    color: #ddd;
-    font-size: 0.9em;
 }
 
-/* 情報セクション */
-#drafted-info p {
-    background-color: #fff3cd;
-    color: #856404;
-    padding: 10px;
-    border: 1px solid #ffeeba;
-    border-radius: 4px;
+.rank-btn {
+    background-color: #007bff; /* 青色 */
+    color: white;
+    border: none;
+    padding: 15px 25px;
+    font-size: 1.2em;
+    font-weight: bold;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+    min-width: 150px;
+}
+
+.rank-btn:hover {
+    background-color: #0056b3; /* ホバーで少し濃い青 */
+    transform: translateY(-2px); /* 少し浮き上がるエフェクト */
+}
+
+/* 選手一覧画面への戻るリンクの調整 */
+#draft-list-screen a {
+    color: #007bff;
+    text-decoration: none;
+    font-weight: bold;
+    display: inline-block;
+    margin-bottom: 10px;
 }
