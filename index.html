@@ -64,8 +64,19 @@
                 </button>
                 
                 <h3 style="margin-top: 30px;">4. 管理者アクション</h3>
-                <button onclick="resetDraft()" style="background-color: #dc3545; color: white; padding: 10px 20px;">🚨 ドラフト全体をリセットする</button>
-                <button onclick="showPlayerView()" style="background-color: #007bff; color: white; padding: 10px 20px;">プレイヤービューを確認</button>
+                
+                <!-- 👇 新しく追加するボタン -->
+                <button onclick="resetParticipants()" style="background-color: #ff9800; color: white; padding: 10px 20px; margin-right: 10px;">
+                    👥 参加者情報のみリセット
+                </button>
+                
+                <button onclick="resetDraft()" style="background-color: #dc3545; color: white; padding: 10px 20px;">
+                    🚨 ドラフト全体をリセット
+                </button>
+                
+                <p style="margin-top: 15px; font-size: 0.9em; color: #6c757d;">※「参加者情報のみリセット」は指名記録を保持し、チーム登録を解除します。</p>
+                
+                <button onclick="showPlayerView()" style="background-color: #007bff; color: white; padding: 10px 20px; margin-top: 20px;">プレイヤービューを確認</button>
             </section>
 
             <!-- 3. プレイヤービューコンテナ -->
