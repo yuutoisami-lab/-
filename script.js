@@ -1,4 +1,5 @@
 // index.htmlで既に初期化された 'db' (Firestoreインスタンス) と ADMIN_PASSWORD を使用します。
+// 依存関係: firebase.firestore.FieldValue, localStorage, ADMIN_PASSWORD (index.htmlで定義)
 
 // --- 変数と要素の取得 ---
 const candidatesList = document.getElementById('candidates');
@@ -42,6 +43,31 @@ function setView(viewId) {
     });
     const targetEl = document.getElementById(viewId);
     if (targetEl) targetEl.style.display = 'block';
+}
+
+// --- 管理者認証とビュー制御 ---
+
+function authenticateAdmin() {
+    const password = document.getElementById('admin-password').value;
+    if (password === ADMIN_PASSWORD) {
+        setView('admin-control');
+        updateAdminControlUI();
+    } else {
+        alert("無効なパスワードです。");
+    }
+}
+
+function showPlayerView() {
+    const baseUrl = window.location.origin + window.location.pathname;
+    const inviteLink = `${baseUrl}?invite=true`;
+    
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(inviteLink).then(() => {
+            alert("招待リンクをクリップボードにコピーしました。プレイヤーに配布してください。");
+        });
+    } else {
+        alert("招待リンクをコピーし、プレイヤーに配布してください:\n" + inviteLink);
+    }
 }
 
 // --- Firestoreからのリアルタイム監視（メタデータと候補者リスト） ---
@@ -122,7 +148,6 @@ function updateCandidatesUI() {
 
         candidatesList.appendChild(li);
 
-        // プルダウンへの追加
         if (draftCount < (totalTeamCount || 1)) {
             const option = document.createElement('option');
             option.value = candidate.id;
@@ -130,32 +155,6 @@ function updateCandidatesUI() {
             candidateSelect.appendChild(option);
         }
     });
-}
-
-// --- 管理者認証とビュー制御 ---
-
-function authenticateAdmin() {
-    const password = document.getElementById('admin-password').value;
-    if (password === ADMIN_PASSWORD) {
-        setView('admin-control');
-        updateAdminControlUI();
-    } else {
-        alert("無効なパスワードです。");
-    }
-}
-
-function showPlayerView() {
-    const baseUrl = window.location.origin + window.location.pathname;
-    const inviteLink = `${baseUrl}?invite=true`;
-    
-    // 管理者にリンクを渡したことを確認
-    if (navigator.clipboard) {
-        navigator.clipboard.writeText(inviteLink).then(() => {
-            alert("招待リンクをクリップボードにコピーしました。プレイヤーに配布してください。");
-        });
-    } else {
-        alert("招待リンクをコピーし、プレイヤーに配布してください:\n" + inviteLink);
-    }
 }
 
 // --- 管理者専用ロジック ---
@@ -319,7 +318,17 @@ function registerTeamName() {
 // --- プレイヤービュー内の画面遷移とUI更新 ---
 
 function showTeamNameInput() {
-    if (!totalTeamCount) { /* ... */ }
+    if (!totalTeamCount) {
+        // プレイヤーが招待リンクでアクセスしたが、チーム数が未設定の場合
+        const currentRegisteredCount = Object.keys(registeredTeams).length;
+        if (currentRegisteredCount > 0) {
+            // 他の人が登録済みだがチーム数が未設定の場合（管理者の設定ミス）
+            alert("チーム数が設定されていません。管理者に連絡してください。");
+            return;
+        }
+        // チーム数が設定されていなければ登録画面は表示しない
+        // 画面は自動的にチーム名入力に切り替わるので、ここでは何もしない
+    }
 
     const currentRegisteredCount = Object.keys(registeredTeams).length;
     if (currentRegisteredCount >= totalTeamCount && !userTeamNumber) {
@@ -438,28 +447,19 @@ function finalizeRoundManual() {
         });
 }
 
-
-// index.htmlで既に初期化された 'db' (Firestoreインスタンス) と ADMIN_PASSWORD を使用します。
-// ... (既存の変数定義は省略)
-
-// --- 指名アクションの関数、UI更新関数など (全て省略) ---
-
-// --- 参加者情報のみをリセットする関数 (指名記録は保持) ---
+// --- 参加者情報のみをリセットする関数 (管理者向け) ---
 function resetParticipants() {
     if (!confirm("🚨 参加者情報のみリセット: 登録された全チームを解散し、チーム数設定を解除します。指名記録は保持されますが、各プレイヤーは再登録が必要です。続行しますか？")) {
         return;
     }
     
-    // メタデータ（状態）のみをリセット
     db.collection("metadata").doc("draft_state").update({ 
         current_rank: 1, 
         temporary_drafts: {},
-        total_teams: null, // チーム数設定を解除
-        registered_teams: {} // チーム登録情報を解除
+        total_teams: null,
+        registered_teams: {}
     })
     .then(() => {
-        // ローカルストレージのチーム情報を削除 (全プレイヤーのブラウザで手動削除が必要だが、管理者側は通知のみ)
-        // 管理者自身の情報もリセット
         localStorage.removeItem('userTeamNumber');
         localStorage.removeItem('userTeamName');
         userTeamNumber = null;
@@ -474,8 +474,7 @@ function resetParticipants() {
     });
 }
 
-
-// --- ドラフト全体をリセットする関数 (既存のロジック) ---
+// --- ドラフト全体をリセットする関数 ---
 function resetDraft() {
     if (!confirm("🚨 管理者権限: 本当にドラフト全体をリセットし、最初からやり直しますか？")) { return; }
     
@@ -507,19 +506,15 @@ function resetDraft() {
         });
     });
 }
-// ... (その他の関数は省略。ただし、全コードは前回の最終版に基づいています)
 
-この修正により、管理者コントロールパネルに「**👥 参加者情報のみリセット**」ボタンが追加され、指名履歴を保持したままチーム構成をリセットできるようになりました。
 // --- 初期ロード時のルーティング ---
 window.onload = function() {
     const urlParams = new URLSearchParams(window.location.search);
     
     if (urlParams.get('invite') === 'true' || userTeamNumber) {
-        // 招待リンクまたは既存ユーザーとしてアクセス
         setView('player-view-container');
         showTeamNameInput();
     } else {
-        // 通常アクセス、管理者認証から
         setView('admin-auth');
     }
 };
