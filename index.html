@@ -36,6 +36,9 @@
                 <button class="rank-btn" onclick="selectRank(1)">ドラフト 1 位</button>
                 </div>
             <p style="margin-top: 20px;">先に指名する順位を選択してください。</p>
+            <button onclick="resetDraft()" style="background-color: #dc3545; color: white; margin-top: 30px; padding: 10px 20px; font-size: 1em; border-radius: 6px;">
+                🚨 ドラフト全体をリセットする
+            </button>
         </section>
 
         <section id="draft-list-screen" style="display:none;">
@@ -56,8 +59,6 @@
                 <select id="candidate-select"></select>
     
                 <button id="draft-action-button" onclick="draftCandidate()">指名候補者を確定</button>
-    
-                <button onclick="resetDraft()" style="background-color: #dc3545; color: white; margin-top: 15px;">🚨 ドラフト全体をリセットする</button>
             </section>
         </section>
     </main>
