@@ -104,3 +104,36 @@ function draftCandidate() {
         alert("指名に失敗しました。");
     });
 }
+// script.js の末尾に以下の関数を追加
+
+// ドラフトをリセットする関数
+function resetDraft() {
+    if (!confirm("本当にドラフト全体をリセットし、全候補者を未指名に戻しますか？")) {
+        return;
+    }
+    
+    const batch = db.batch();
+    
+    // 全候補者を取得
+    db.collection("candidates").get().then((snapshot) => {
+        snapshot.forEach((doc) => {
+            // 各ドキュメントの status を un-drafted に設定するバッチ処理に追加
+            batch.update(doc.ref, { 
+                status: "un-drafted",
+                drafted_rank: firebase.firestore.FieldValue.delete(), // 順位記録を削除
+                draftedAt: firebase.firestore.FieldValue.delete()      // 指名日時を削除
+            });
+        });
+
+        // バッチ処理を実行
+        return batch.commit();
+    })
+    .then(() => {
+        alert("✅ ドラフトはリセットされ、全候補者が未指名になりました。");
+        showRankSelection(); // 順位選択画面に戻る
+    })
+    .catch((error) => {
+        console.error("リセットエラー:", error);
+        alert("リセット中にエラーが発生しました。コンソールを確認してください。");
+    });
+}
