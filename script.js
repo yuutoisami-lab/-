@@ -182,7 +182,9 @@ function resetDraft() {
             batch.update(doc.ref, { 
                 status: "un-drafted",
                 drafted_rank: firebase.firestore.FieldValue.delete(), // 順位記録を削除
-                draftedAt: firebase.firestore.FieldValue.delete()      // 指名日時を削除
+                draftedAt: firebase.firestore.FieldValue.delete(),      // 指名日時を削除
+                drafted_by: firebase.firestore.FieldValue.delete(),
+                draft_info: firebase.firestore.FieldValue.delete()
             });
         });
 
