@@ -1,18 +1,24 @@
-// index.htmlで既に初期化された 'db' (Firestoreインスタンス) を使用します。
-// 依存関係: firebase.firestore.FieldValue
+// index.htmlで既に初期化された 'db' (Firestoreインスタンス) と ADMIN_PASSWORD を使用します。
 
 // --- 変数と要素の取得 ---
 const candidatesList = document.getElementById('candidates');
 const candidateSelect = document.getElementById('candidate-select');
-const teamSelectionScreen = document.getElementById('team-selection');
-const teamNameInputScreen = document.getElementById('team-name-input'); // 新しい画面
+const teamNameInputScreen = document.getElementById('team-name-input');
 const rankSelectionScreen = document.getElementById('rank-selection');
 const draftListScreen = document.getElementById('draft-list-screen');
 const currentRankTitle = document.getElementById('current-rank-title');
 const rankStatusMessage = document.getElementById('rank-status-message');
-
 const userTeamNameInput = document.getElementById('user-team-name');
 const assignedTeamNumberInfo = document.getElementById('assigned-team-number-info');
+const limitReachedScreen = document.getElementById('limit-reached');
+const inviteLinkDisplay = document.getElementById('invite-link-display');
+const currentTeamSetting = document.getElementById('current-team-setting');
+
+// 管理者ビュー専用の要素
+const adminStatusDisplay = document.getElementById('admin-status-display');
+const finalizeButton = document.getElementById('finalize-round-button');
+
+const appViews = ['admin-auth', 'admin-control', 'player-view-container'];
 
 // 選択されたドラフト順位と参加チーム数 (グローバル)
 let selectedDraftRank = null; 
@@ -24,8 +30,19 @@ let userTeamName = localStorage.getItem('userTeamName') || null;
 
 // Firestoreのリアルタイム状態
 let currentSystemRank = 1; 
-let temporaryDrafts = {}; // { teamNumber: candidateId, ... }
-let registeredTeams = {}; // { teamNumber: teamName, ... }
+let temporaryDrafts = {}; 
+let registeredTeams = {}; 
+let candidatesData = []; // 全候補者データを保持
+
+// --- ビュー切り替えヘルパー ---
+function setView(viewId) {
+    appViews.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+    const targetEl = document.getElementById(viewId);
+    if (targetEl) targetEl.style.display = 'block';
+}
 
 // --- Firestoreからのリアルタイム監視（メタデータと候補者リスト） ---
 
@@ -55,17 +72,34 @@ db.collection("metadata").doc("draft_state").onSnapshot(doc => {
     updateAllUI();
 });
 
-// 2. 候補者リストの監視 (既存ロジックとほぼ同じ)
+// 2. 候補者リストの監視
 db.collection("candidates").onSnapshot((snapshot) => {
+    candidatesData = [];
+    snapshot.forEach((doc) => {
+        candidatesData.push({ id: doc.id, ...doc.data() });
+    });
+    
+    // 候補者データが更新されたらUIを更新
+    updateCandidatesUI();
+    updateAdminControlUI(); 
+});
+
+// --- UI更新メイン関数 ---
+function updateAllUI() {
+    updateRankSelectionUI();
+    updateTeamNameInputUI();
+    updateDraftActionUI();
+    updateCandidatesUI();
+    updateAdminControlUI(); 
+}
+
+// 候補者リストとプルダウンのUIを更新
+function updateCandidatesUI() {
+    // プレイヤービューのリストを更新
     candidatesList.innerHTML = '';
     candidateSelect.innerHTML = '';
-    
-    const candidates = [];
-    snapshot.forEach((doc) => {
-        candidates.push({ id: doc.id, ...doc.data() });
-    });
 
-    candidates.forEach(candidate => {
+    candidatesData.forEach(candidate => {
         const li = document.createElement('li');
         const draftCount = candidate.drafted_by ? candidate.drafted_by.length : 0;
         
@@ -81,7 +115,6 @@ db.collection("candidates").onSnapshot((snapshot) => {
         
         if (draftCount > 0) {
             const teamNames = candidate.drafted_by.map(teamNum => {
-                // 登録されたチーム名があれば表示、なければ番号を表示
                 return registeredTeams[teamNum] ? registeredTeams[teamNum] : `チーム ${teamNum}`;
             }).join(', ');
             li.textContent += ` [指名元: ${teamNames}]`;
@@ -89,6 +122,7 @@ db.collection("candidates").onSnapshot((snapshot) => {
 
         candidatesList.appendChild(li);
 
+        // プルダウンへの追加
         if (draftCount < (totalTeamCount || 1)) {
             const option = document.createElement('option');
             option.value = candidate.id;
@@ -96,93 +130,135 @@ db.collection("candidates").onSnapshot((snapshot) => {
             candidateSelect.appendChild(option);
         }
     });
-});
+}
 
-// --- UI更新メイン関数 ---
-function updateAllUI() {
-    updateRankSelectionUI();
-    if (teamNameInputScreen.style.display === 'block') {
-        updateTeamNameInputUI();
-    }
-    if (draftListScreen.style.display === 'block') {
-        updateDraftActionUI();
+// --- 管理者認証とビュー制御 ---
+
+function authenticateAdmin() {
+    const password = document.getElementById('admin-password').value;
+    if (password === ADMIN_PASSWORD) {
+        setView('admin-control');
+        updateAdminControlUI();
+    } else {
+        alert("無効なパスワードです。");
     }
 }
 
-// --- 画面遷移ロジック ---
-
-// 参加チーム設定画面を表示
-function showTeamSelection() {
-    [teamSelectionScreen, teamNameInputScreen, rankSelectionScreen, draftListScreen].forEach(el => el.style.display = 'none');
-    teamSelectionScreen.style.display = 'block';
-    selectedDraftRank = null;
-}
-
-// チーム名入力画面を表示
-function showTeamNameInput() {
-    [teamSelectionScreen, teamNameInputScreen, rankSelectionScreen, draftListScreen].forEach(el => el.style.display = 'none');
+function showPlayerView() {
+    const baseUrl = window.location.origin + window.location.pathname;
+    const inviteLink = `${baseUrl}?invite=true`;
     
-    // 既にチーム名が登録されていれば、順位選択にスキップ
-    if (userTeamNumber && userTeamName && totalTeamCount) {
-        showRankSelection();
-        return;
-    }
-
-    teamNameInputScreen.style.display = 'block';
-    updateTeamNameInputUI();
-}
-
-// 順位選択画面を表示
-function showRankSelection() {
-    if (!userTeamNumber || !totalTeamCount) {
-        // チーム情報が不完全なら最初に戻す
-        showTeamSelection();
-        return;
-    }
-    
-    [teamSelectionScreen, teamNameInputScreen, rankSelectionScreen, draftListScreen].forEach(el => el.style.display = 'none');
-    rankSelectionScreen.style.display = 'block';
-    selectedDraftRank = null;
-    updateRankSelectionUI(); 
-}
-
-// チーム数を設定し、次の画面へ遷移する
-function setTeamCount(count) {
-    if (totalTeamCount !== count) {
-         // チーム数が変更されたら、登録済みのチーム情報をリセット
-        db.collection("metadata").doc("draft_state").update({
-            total_teams: count,
-            registered_teams: {}
-        }).then(() => {
-            alert(`${count}チームでドラフトを開始します。チーム名を入力してください。`);
-            // チーム数が変更されたらローカル情報もリセット（再登録を促すため）
-            localStorage.removeItem('userTeamNumber');
-            localStorage.removeItem('userTeamName');
-            userTeamNumber = null;
-            userTeamName = null;
-            showTeamNameInput();
+    // 管理者にリンクを渡したことを確認
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(inviteLink).then(() => {
+            alert("招待リンクをクリップボードにコピーしました。プレイヤーに配布してください。");
         });
     } else {
-        // チーム数が同じならそのままチーム名入力へ
-        showTeamNameInput();
+        alert("招待リンクをコピーし、プレイヤーに配布してください:\n" + inviteLink);
     }
 }
 
+// --- 管理者専用ロジック ---
 
-// --- チーム名登録ロジック ---
+function updateAdminControlUI() {
+    const count = totalTeamCount || '未設定';
+    const registeredCount = Object.keys(registeredTeams).length;
+    const completedTeams = Object.keys(temporaryDrafts).length;
 
-// チーム名入力画面のUIを更新
-function updateTeamNameInputUI() {
+    // チーム数設定表示
+    currentTeamSetting.textContent = `現在の設定: ${count} チーム (${registeredCount} チーム登録済み)`;
+    
+    // 招待リンク生成
+    const baseUrl = window.location.origin + window.location.pathname;
     if (totalTeamCount) {
-        assignedTeamNumberInfo.textContent = `参加チーム数: ${totalTeamCount} チーム`;
+        inviteLinkDisplay.value = `${baseUrl}?invite=true`;
     } else {
-        assignedTeamNumberInfo.textContent = `先にチーム数を設定してください。`;
+        inviteLinkDisplay.value = 'チーム数を設定してください。';
+    }
+
+    // ステータス表示
+    let statusHTML = `
+        <h3>現在 ${currentSystemRank} 位指名中</h3>
+        <p>参加チーム数: <strong>${totalTeamCount || '未設定'}</strong> / 登録済チーム: <strong>${registeredCount}</strong></p>
+        <hr>
+        <h4>${currentSystemRank} 位の仮指名状況 (${completedTeams} / ${totalTeamCount || registeredCount} チーム完了)</h4>
+        <ul style="list-style: none; padding: 0;">
+    `;
+
+    if (totalTeamCount) {
+        for (let i = 1; i <= totalTeamCount; i++) {
+            const teamName = registeredTeams[i] || `チーム ${i}`;
+            const candidateId = temporaryDrafts[i];
+            const isCompleted = !!candidateId;
+            const statusColor = isCompleted ? 'green' : 'gray';
+            const statusIcon = isCompleted ? '✅' : '⏳';
+            
+            let candidateName = '未指名';
+            if (candidateId) {
+                const candidate = candidatesData.find(c => c.id === candidateId);
+                candidateName = candidate ? candidate.name : '不明な候補者';
+            }
+
+            statusHTML += `
+                <li style="color: ${statusColor}; margin-bottom: 5px;">
+                    ${statusIcon} <strong>${teamName}</strong>: ${candidateName}
+                </li>
+            `;
+        }
+    } else {
+        statusHTML += `<li>チーム数が設定されていません。</li>`;
+    }
+    statusHTML += `</ul>`;
+    adminStatusDisplay.innerHTML = statusHTML;
+
+    // 公表・確定ボタンの制御
+    if (completedTeams === totalTeamCount && totalTeamCount > 0) {
+        finalizeButton.disabled = false;
+        finalizeButton.textContent = `📢 ${currentSystemRank} 位の指名を公表・確定する`;
+        finalizeButton.style.backgroundColor = '#ffc107'; 
+    } else {
+        finalizeButton.disabled = true;
+        finalizeButton.textContent = `全チーム指名完了待ち (${completedTeams} / ${totalTeamCount || '?'})`;
+        finalizeButton.style.backgroundColor = '#6c757d';
+    }
+}
+
+function setAdminTeamCount(count) {
+    if (count < Object.keys(registeredTeams).length) {
+        alert(`現在の登録チーム数(${Object.keys(registeredTeams).length})よりも少ないチーム数には設定できません。リセットしてください。`);
+        return;
     }
     
-    // ローカルに情報があれば表示を更新
+    db.collection("metadata").doc("draft_state").update({
+        total_teams: count
+    }).then(() => {
+        alert(`参加チーム数を ${count} チームに設定しました。`);
+        updateAdminControlUI();
+    });
+}
+
+function copyInviteLink() {
+    const link = document.getElementById('invite-link-display');
+    if (link.value && link.value.startsWith('http')) {
+        link.select();
+        document.execCommand('copy');
+        alert("招待リンクをコピーしました。");
+    }
+}
+
+// --- チーム名登録ロジック (プレイヤー) ---
+
+function updateTeamNameInputUI() {
+    const registeredCount = Object.keys(registeredTeams).length;
+    if (totalTeamCount) {
+        assignedTeamNumberInfo.textContent = `参加枠: ${totalTeamCount} チーム (現在 ${registeredCount} チーム登録済み)`;
+    } else {
+        assignedTeamNumberInfo.textContent = `管理者がまだチーム数を設定していません。`;
+    }
+    
     if (userTeamName && userTeamNumber) {
         userTeamNameInput.value = userTeamName;
-        assignedTeamNumberInfo.textContent += ` (あなた: ${userTeamName} - チーム ${userTeamNumber})`;
+        assignedTeamNumberInfo.textContent += ` (あなたのチーム: ${userTeamName} - チーム ${userTeamNumber})`;
         document.querySelector('#team-name-input button').textContent = 'ドラフト順位選択へ進む';
     } else {
         userTeamNameInput.value = '';
@@ -190,27 +266,27 @@ function updateTeamNameInputUI() {
     }
 }
 
-// チーム名を登録し、チーム番号を割り当てる
 function registerTeamName() {
     const name = userTeamNameInput.value.trim();
 
     if (!totalTeamCount) {
-        alert("先にチーム数を選択してください。");
-        showTeamSelection();
+        alert("管理者がチーム数を設定していません。");
         return;
     }
     if (!name) {
         alert("チーム名を入力してください。");
         return;
     }
+    if (Object.values(registeredTeams).includes(name)) {
+        alert("そのチーム名は既に使われています。別の名前を入力してください。");
+        return;
+    }
 
-    // 既に登録済みで、登録ボタンが「進む」ボタンとして機能している場合
-    if (userTeamNumber && userTeamName === name) {
+    if (userTeamNumber && localStorage.getItem('userTeamName') === name) {
         showRankSelection();
         return;
     }
 
-    // 登録可能な最小のチーム番号を探す
     const existingTeamNumbers = Object.keys(registeredTeams).map(Number);
     let nextTeamNumber = 1;
     while (existingTeamNumbers.includes(nextTeamNumber) && nextTeamNumber <= totalTeamCount) {
@@ -218,16 +294,14 @@ function registerTeamName() {
     }
 
     if (nextTeamNumber > totalTeamCount) {
-        alert(`参加枠(${totalTeamCount}チーム)が全て埋まっています。リセットするか、他の参加者と協力してください。`);
+        showLimitReached();
         return;
     }
 
-    // Firestoreにチーム名とチーム番号を登録
     db.collection("metadata").doc("draft_state").update({
         [`registered_teams.${nextTeamNumber}`]: name
     })
     .then(() => {
-        // ローカルストレージに保存
         localStorage.setItem('userTeamNumber', nextTeamNumber);
         localStorage.setItem('userTeamName', name);
         userTeamNumber = nextTeamNumber;
@@ -242,148 +316,91 @@ function registerTeamName() {
     });
 }
 
+// --- プレイヤービュー内の画面遷移とUI更新 ---
 
-// --- UI更新関数 ---
+function showTeamNameInput() {
+    if (!totalTeamCount) { /* ... */ }
 
-// 順位選択UIを更新
-function updateRankSelectionUI() {
-    const rankButtons = document.querySelectorAll('#draft-ranks .rank-btn');
-
-    rankButtons.forEach(btn => {
-        const rank = parseInt(btn.textContent.match(/\d+/)[0]);
-        if (rank === currentSystemRank && currentSystemRank <= 7 && userTeamNumber) {
-            btn.disabled = false;
-            btn.style.opacity = 1.0;
-            btn.style.backgroundColor = '#007bff';
-            btn.textContent = `▶️ ドラフト ${rank} 位を指名`;
-        } else {
-            btn.disabled = true;
-            btn.style.opacity = 0.5;
-            btn.style.backgroundColor = '#6c757d';
-            btn.textContent = `ドラフト ${rank} 位 (待機中)`;
-        }
-    });
-
-    if (rankStatusMessage && totalTeamCount) {
-        if (currentSystemRank <= 7) {
-            const completedTeams = Object.keys(temporaryDrafts).length;
-            const remainingTeams = totalTeamCount - completedTeams;
-            const userDrafted = temporaryDrafts[userTeamNumber];
-
-            let message = `🔥 ${currentSystemRank} 位指名中！`;
-            if (userDrafted) {
-                 message += ` (あなた: ✅ 指名完了)`;
-                 rankStatusMessage.style.backgroundColor = '#ffffcc';
-            } else {
-                 message += ` (残り ${remainingTeams} チーム)`;
-                 rankStatusMessage.style.backgroundColor = '#d4edda'; 
-            }
-            
-            if (completedTeams === totalTeamCount) {
-                message = `📢 ${currentSystemRank} 位の指名完了！結果が確定されます...`;
-                rankStatusMessage.style.backgroundColor = '#ffc107'; 
-            }
-
-            rankStatusMessage.textContent = message;
-            rankStatusMessage.style.color = '#155724';
-        } else {
-            rankStatusMessage.textContent = `✅ ドラフトは終了しました。最終順位: 7 位`;
-            rankStatusMessage.style.backgroundColor = '#fff3cd';
-            rankStatusMessage.style.color = '#856404';
-            rankButtons.forEach(btn => btn.disabled = true);
-        }
+    const currentRegisteredCount = Object.keys(registeredTeams).length;
+    if (currentRegisteredCount >= totalTeamCount && !userTeamNumber) {
+        showLimitReached();
+        return;
     }
+    const phases = document.querySelectorAll('#player-view-container .player-phase');
+    phases.forEach(el => el.style.display = 'none');
+    teamNameInputScreen.style.display = 'block';
+
+    updateTeamNameInputUI();
 }
 
-// 指名画面のUIを更新 (自分のチーム名と指名ステータスを表示)
-function updateDraftActionUI() {
-    if (userTeamName && userTeamNumber) {
-        currentRankTitle.textContent = `${userTeamName} (チーム ${userTeamNumber}) の ${currentSystemRank} 位指名`;
-    }
-    
-    // 自分のチームが既に仮指名済みなら、指名ボタンを無効化
-    const userDrafted = temporaryDrafts[userTeamNumber];
-    const draftActionButton = document.getElementById('draft-action-button');
-    
-    if (userDrafted) {
-        draftActionButton.disabled = true;
-        draftActionButton.textContent = '✅ 指名済み (公表を待機中)';
-    } else {
-        draftActionButton.disabled = false;
-        draftActionButton.textContent = '指名候補者を確定';
-    }
+function showLimitReached() {
+    const phases = document.querySelectorAll('#player-view-container .player-phase');
+    phases.forEach(el => el.style.display = 'none');
+    limitReachedScreen.style.display = 'block';
 }
 
+function showRankSelection() {
+    if (!userTeamNumber || !totalTeamCount) {
+        showTeamNameInput();
+        return;
+    }
+    
+    const phases = document.querySelectorAll('#player-view-container .player-phase');
+    phases.forEach(el => el.style.display = 'none');
+    rankSelectionScreen.style.display = 'block';
+    selectedDraftRank = null;
+    updateRankSelectionUI(); 
+}
 
-// 順位を選択し、選手一覧画面へ遷移する
 function selectRank(rank) {
     if (rank !== currentSystemRank) {
         alert(`現在はドラフト ${currentSystemRank} 位の指名順です。`);
         return;
     }
-    
     selectedDraftRank = rank;
-    
-    rankSelectionScreen.style.display = 'none';
+    const phases = document.querySelectorAll('#player-view-container .player-phase');
+    phases.forEach(el => el.style.display = 'none');
     draftListScreen.style.display = 'block';
     updateDraftActionUI();
 }
 
+// --- 指名アクションの関数 ---
 
-// --- 指名アクションの関数（仮指名と一括確定） ---
 function draftCandidate() {
     const selectedId = candidateSelect.value;
     
-    if (!userTeamNumber || !totalTeamCount) {
-        alert('先にチーム名を設定してください。');
-        showTeamSelection();
-        return;
-    }
-    if (selectedDraftRank !== currentSystemRank) {
-        alert(`指名順が正しくありません。現在はドラフト ${currentSystemRank} 位の指名順です。`);
-        showRankSelection();
-        return;
-    }
-    if (!selectedId) {
-        alert('指名する候補者を選択してください。');
-        return;
-    }
+    if (!userTeamNumber || !totalTeamCount) { alert('チーム名を設定してください。'); showTeamNameInput(); return; }
+    if (selectedDraftRank !== currentSystemRank) { alert(`指名順が正しくありません。`); showRankSelection(); return; }
+    if (!selectedId) { alert('指名する候補者を選択してください。'); return; }
 
-    // 既にこのチームが仮指名済みかチェック
-    if (temporaryDrafts[userTeamNumber]) {
-        alert(`${userTeamName} (チーム ${userTeamNumber}) は既に ${currentSystemRank} 位の指名を完了しています。`);
-        return;
-    }
+    const teamNumber = userTeamNumber;
+
+    if (temporaryDrafts[teamNumber]) { alert(`${userTeamName} は既に ${currentSystemRank} 位の指名を完了しています。`); return; }
     
-    // --- 1. 仮指名の追加 ---
-    const newTemporaryDrafts = {
-        ...temporaryDrafts,
-        [userTeamNumber]: selectedId
-    };
+    const newTemporaryDrafts = { ...temporaryDrafts, [teamNumber]: selectedId };
 
-    db.collection("metadata").doc("draft_state").update({
-        temporary_drafts: newTemporaryDrafts
-    })
+    db.collection("metadata").doc("draft_state").update({ temporary_drafts: newTemporaryDrafts })
     .then(() => {
-        alert(`チーム ${userTeamName} の ${currentSystemRank} 位指名を受け付けました。他のチームの指名が完了し、公表されるまでお待ちください。`);
-
-        // --- 2. 全員完了チェックと一括確定処理 ---
-        if (Object.keys(newTemporaryDrafts).length === totalTeamCount) {
-            
-            // 🚨 全員揃ったので一括確定処理を開始
-            alert(`🎉 全チームの指名が完了しました！ ${currentSystemRank} 位の指名結果を確定し、公表します...`);
-            return finalizeRound(newTemporaryDrafts);
-        }
-        showRankSelection(); // 仮指名を受け付けたら順位選択画面に戻る
+        alert(`チーム ${userTeamName} の ${currentSystemRank} 位指名を受け付けました。管理者の公表操作をお待ちください。`);
+        showRankSelection(); 
     })
-    .catch((error) => {
-        console.error("仮指名エラー: ", error);
-        alert("指名に失敗しました。コンソールを確認してください。");
-    });
+    .catch((error) => { console.error("仮指名エラー: ", error); alert("指名に失敗しました。コンソールを確認してください。"); });
 }
 
-// --- 一括確定処理のコア関数 ---
-function finalizeRound(drafts) {
+
+// --- 管理者手動実行用の確定処理 ---
+
+// 管理者ボタンから呼び出される
+function finalizeRoundManual() {
+    if (Object.keys(temporaryDrafts).length !== totalTeamCount) {
+        alert("エラー: 全チームの仮指名が完了していません。");
+        return;
+    }
+    if (!confirm(`本当にドラフト ${currentSystemRank} 位の指名結果を公表・確定しますか？`)) {
+        return;
+    }
+
+    const drafts = temporaryDrafts;
     const batch = db.batch();
     const rankToFinalize = currentSystemRank;
 
@@ -393,7 +410,6 @@ function finalizeRound(drafts) {
         const candidateId = drafts[teamNumberStr];
         const candidateRef = db.collection("candidates").doc(candidateId);
 
-        // 配列に指名情報を追加
         batch.update(candidateRef, {
             draft_info: firebase.firestore.FieldValue.arrayUnion({
                 team: teamNumber,
@@ -414,20 +430,19 @@ function finalizeRound(drafts) {
     return batch.commit()
         .then(() => {
             alert(`✅ ドラフト ${rankToFinalize} 位の指名結果が公表され、${nextRank} 位の指名が始まりました！`);
-            showRankSelection();
+            updateAdminControlUI();
+        })
+        .catch((error) => {
+            console.error("確定処理エラー:", error);
+            alert("確定処理中にエラーが発生しました。");
         });
 }
 
 
-// --- リセット関数（状態管理のリセットも含む） ---
 function resetDraft() {
-    if (!confirm("本当にドラフト全体をリセットし、全候補者を未指名に戻しますか？")) {
-        return;
-    }
+    if (!confirm("🚨 管理者権限: 本当にドラフト全体をリセットし、最初からやり直しますか？")) { return; }
     
     const batch = db.batch();
-    
-    // 全候補者を取得し、バッチに削除操作を追加
     db.collection("candidates").get().then((snapshot) => {
         snapshot.forEach((doc) => {
             batch.update(doc.ref, { 
@@ -436,41 +451,36 @@ function resetDraft() {
             });
         });
 
-        // 1. 候補者の指名情報をリセット
         batch.commit()
         .then(() => {
-            // 2. システムの状態を1位にリセット
             return db.collection("metadata").doc("draft_state").update({ 
                 current_rank: 1, 
                 temporary_drafts: {},
-                total_teams: null, // チーム数もリセットして、最初から設定し直す
+                total_teams: null,
                 registered_teams: {}
             });
         })
         .then(() => {
-            // 3. ローカルストレージのチーム情報を削除
             localStorage.removeItem('userTeamNumber');
             localStorage.removeItem('userTeamName');
             userTeamNumber = null;
             userTeamName = null;
-
-            alert("✅ ドラフトはリセットされ、全候補者が未指名になりました。");
-            showTeamSelection(); // 最初からやり直し
-        })
-        .catch((error) => {
-            console.error("リセットエラー:", error);
-            alert("リセット中にエラーが発生しました。コンソールを確認してください。");
+            alert("✅ 全てのドラフト状態がリセットされました。");
+            setView('admin-control');
         });
     });
 }
 
-// ページロード時に適切な画面を表示する
+// --- 初期ロード時のルーティング ---
 window.onload = function() {
-    if (userTeamNumber && userTeamName && localStorage.getItem('totalTeamCount')) {
-        // チーム情報がローカルに残っていれば、順位選択からスタート
-        showRankSelection();
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    if (urlParams.get('invite') === 'true' || userTeamNumber) {
+        // 招待リンクまたは既存ユーザーとしてアクセス
+        setView('player-view-container');
+        showTeamNameInput();
     } else {
-        // なければ、チーム数選択からスタート
-        showTeamSelection();
+        // 通常アクセス、管理者認証から
+        setView('admin-auth');
     }
 };
