@@ -3,34 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚾️ ドラフト指名サイト ⚾️</title>
+    <title>⚾️ リアルタイム・ドラフト指名サイト ⚾️</title>
     <link rel="stylesheet" href="style.css">
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+
 </head>
 <body>
     <header>
-        <h1>公式ドラフト指名リスト</h1>
-        <p>指名状況をリアルタイムで確認しましょう。</p>
+        <h1>リアルタイム ドラフト指名リスト</h1>
     </header>
 
     <main>
         <section id="draft-list">
             <h2>指名候補者一覧</h2>
             <ul id="candidates">
-                <li data-status="un-drafted">👤 候補者 A</li>
-                <li data-status="un-drafted">👤 候補者 B</li>
-                <li data-status="un-drafted">👤 候補者 C</li>
-                </ul>
+                <li>データ読み込み中...</li>
+            </ul>
         </section>
 
-        <section id="drafted-info">
-            <h2>🚨 現在の指名状況 🚨</h2>
-            <p>※リストの該当候補者の `data-status` を "drafted" に変更すると、スタイルが適用されます。</p>
-            </section>
+        <section id="action-area">
+            <h2>指名アクション</h2>
+            <select id="candidate-select"></select>
+            <button onclick="draftCandidate()">この候補者を指名する</button>
+            <p style="margin-top: 10px; font-size: 0.9em;">（🚨この操作はデータベースを更新します）</p>
+        </section>
     </main>
 
     <footer>
-        <p>&copy; 2025 Draft Tracker. Powered by GitHub Pages.</p>
+        <p>&copy; 2025 Realtime Draft Tracker.</p>
     </footer>
 
-    </body>
+    <script>
+        // ⚠️ ここに、あなたのFirebaseプロジェクトの設定情報を貼り付けてください ⚠️
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY", 
+            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT_ID.appspot.com",
+            messagingSenderId: "SENDER_ID",
+            appId: "APP_ID"
+        };
+
+        // Firebaseを初期化
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+    </script>
+    <script src="script.js"></script>
+</body>
 </html>
