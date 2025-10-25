@@ -3,89 +3,147 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚾️ リアルタイム・ドラフト指名サイト ⚾️</title>
+    <title>⚾️ 公式ドラフトシステム ⚾️</title>
     <link rel="stylesheet" href="style.css">
     
+    <!-- Firebase SDKの読み込み -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
-
 </head>
 <body>
     <header>
-        <h1>リアルタイム ドラフト指名リスト</h1>
+        <h1>⚾️ 公式ドラフトシステム ⚾️</h1>
     </header>
 
     <main>
-        <section id="team-selection">
-            <h2>ドラフト参加チーム数の設定</h2>
-            <p>何チームでドラフトを実施しますか？（例：3チーム）</p>
-            <div id="team-counts">
-                <button class="team-btn" onclick="setTeamCount(3)">3 チーム</button>
-                <button class="team-btn" onclick="setTeamCount(4)">4 チーム</button>
-                <button class="team-btn" onclick="setTeamCount(5)">5 チーム</button>
-                <button class="team-btn" onclick="setTeamCount(6)">6 チーム</button>
-            </div>
-        </section>
-        <section id="team-name-input" style="display:none;">
-            <p><a href="#" onclick="showTeamSelection(); return false;">&laquo; チーム数選択に戻る</a></p>
-            <h2>あなたのチーム名を入力してください</h2>
-            <p id="assigned-team-number-info" style="font-weight: bold; color: #007bff;"></p>
-            <input type="text" id="user-team-name" placeholder="チーム名 (例: トラベラーズ)" style="padding: 10px; width: 80%; max-width: 300px; margin-bottom: 10px;">
-            <button onclick="registerTeamName()" style="background-color: #28a745; color: white;">チーム名を登録して開始</button>
-        </section>
-        <section id="rank-selection" style="display:none;">
-            <p><a href="#" onclick="showTeamSelection(); return false;">&laquo; チーム選択に戻る</a></p>
-            <h2>指名順位の選択 (1位〜7位)</h2>
-    
-            <p id="rank-status-message" style="padding: 10px; border-radius: 4px; font-weight: bold; text-align: center;"></p> 
-    
-            <div id="draft-ranks">
-                <button class="rank-btn" onclick="selectRank(1)">ドラフト 1 位</button>
-                </div>
-            <p style="margin-top: 20px;">先に指名する順位を選択してください。</p>
-            <button onclick="resetDraft()" style="background-color: #dc3545; color: white; margin-top: 30px; padding: 10px 20px; font-size: 1em; border-radius: 6px;">
-                🚨 ドラフト全体をリセットする
-            </button>
-        </section>
-
-        <section id="draft-list-screen" style="display:none;">
-            <p><a href="#" onclick="showRankSelection(); return false;">&laquo; 順位選択画面に戻る</a></p>
-            <h2 id="current-rank-title"></h2>
+        <!-- 🚨 全てのコンテンツのコンテナ (JavaScriptで表示を切り替える) -->
+        <div id="app-container">
             
-            <section id="draft-list">
-                <h3>指名候補者一覧</h3>
-                <ul id="candidates">
-                    <li>データ読み込み中...</li>
-                </ul>
+            <!-- 1. 管理者認証画面 -->
+            <section id="admin-auth" class="view">
+                <h2>管理者ログイン</h2>
+                <p>管理者パスワードを入力してください。</p>
+                <input type="password" id="admin-password" placeholder="パスワード" style="padding: 10px; margin-bottom: 10px;">
+                <button onclick="authenticateAdmin()">ログイン</button>
             </section>
 
-            <hr>
+            <!-- 2. 管理者コントロール画面 -->
+            <section id="admin-control" class="view" style="display:none;">
+                <h2>✅ 管理者コントロールパネル</h2>
+                <p>ドラフトの初期設定と参加者への招待を行います。</p>
+                <hr>
+                
+                <!-- チーム数設定 (管理者のみ) -->
+                <h3>1. 参加チーム数の設定</h3>
+                <div id="admin-team-counts">
+                    <button class="team-btn" onclick="setAdminTeamCount(3)">3 チーム</button>
+                    <button class="team-btn" onclick="setAdminTeamCount(4)">4 チーム</button>
+                    <button class="team-btn" onclick="setAdminTeamCount(5)">5 チーム</button>
+                    <button class="team-btn" onclick="setAdminTeamCount(6)">6 チーム</button>
+                </div>
+                <p id="current-team-setting" style="font-weight: bold; margin-top: 10px;">現在の設定: 未設定</p>
 
-            <section id="action-area">
-                <h3>指名アクション</h3>
-                <select id="candidate-select"></select>
-    
-                <button id="draft-action-button" onclick="draftCandidate()">指名候補者を確定</button>
+                <!-- 招待リンク生成 -->
+                <h3 style="margin-top: 30px;">2. プレイヤー招待リンク</h3>
+                <p>以下のリンクをコピーし、プレイヤーに配布してください。</p>
+                <input type="text" id="invite-link-display" readonly placeholder="チーム数設定後にリンクが表示されます" style="padding: 10px; width: 100%; margin-bottom: 10px;">
+                <button onclick="copyInviteLink()">リンクをコピー</button>
+                
+                <!-- 3. リアルタイムステータスと公表ボタン -->
+                <h3 style="margin-top: 30px;">3. リアルタイム指名状況と公表</h3>
+                
+                <!-- リアルタイムの指名状況がここに表示されます -->
+                <div id="admin-status-display" style="border: 1px solid #ccc; padding: 15px; border-radius: 5px; margin-bottom: 15px;">
+                    <!-- JSによって内容が埋められます -->
+                    <p>指名状況を読み込み中...</p>
+                </div>
+                
+                <!-- 公表・確定ボタン -->
+                <button id="finalize-round-button" onclick="finalizeRoundManual()" disabled style="background-color: #6c757d; color: white; padding: 15px 30px; font-size: 1.1em; border-radius: 6px;">
+                    全チーム指名完了待ち
+                </button>
+                
+                <h3 style="margin-top: 30px;">4. 管理者アクション</h3>
+                <button onclick="resetDraft()" style="background-color: #dc3545; color: white; padding: 10px 20px;">🚨 ドラフト全体をリセットする</button>
+                <button onclick="showPlayerView()" style="background-color: #007bff; color: white; padding: 10px 20px;">プレイヤービューを確認</button>
             </section>
-        </section>
+
+            <!-- 3. プレイヤービューコンテナ -->
+            <section id="player-view-container" class="view" style="display:none;">
+                
+                <!-- 3.1 チーム名登録フェーズ -->
+                <section id="team-name-input" class="player-phase">
+                    <h2>あなたのチーム名を入力してください</h2>
+                    <p id="assigned-team-number-info" style="font-weight: bold; color: #007bff;"></p>
+                    <input type="text" id="user-team-name" placeholder="チーム名 (例: トラベラーズ)" style="padding: 10px; width: 80%; max-width: 300px; margin-bottom: 10px;">
+                    <button onclick="registerTeamName()" style="background-color: #28a7f45; color: white;">チーム名を登録して開始</button>
+                    <p style="margin-top: 20px;">※一度登録すると、このブラウザではチームが固定されます。</p>
+                </section>
+                
+                <!-- 3.2 参加上限オーバー表示 -->
+                <section id="limit-reached" class="player-phase" style="display:none;">
+                    <h2>⚠️ 参加上限に達しました</h2>
+                    <p>このドラフトは既にフル参加です。管理者に連絡してください。</p>
+                </section>
+
+                <!-- 3.3 順位選択フェーズ -->
+                <section id="rank-selection" class="player-phase" style="display:none;">
+                    <p><a href="#" onclick="showTeamNameInput(); return false;">&laquo; チーム名変更に戻る</a></p>
+                    <h2>指名順位の選択 (1位〜7位)</h2>
+                    <p id="rank-status-message" style="/* スタイルはCSSで */"></p> 
+                    <div id="draft-ranks">
+                        <button class="rank-btn" onclick="selectRank(1)">ドラフト 1 位</button>
+                        <button class="rank-btn" onclick="selectRank(2)">ドラフト 2 位</button>
+                        <button class="rank-btn" onclick="selectRank(3)">ドラフト 3 位</button>
+                        <button class="rank-btn" onclick="selectRank(4)">ドラフト 4 位</button>
+                        <button class="rank-btn" onclick="selectRank(5)">ドラフト 5 位</button>
+                        <button class="rank-btn" onclick="selectRank(6)">ドラフト 6 位</button>
+                        <button class="rank-btn" onclick="selectRank(7)">ドラフト 7 位</button>
+                    </div>
+                    <button onclick="resetDraft()" style="background-color: #dc3545; color: white; margin-top: 30px; padding: 10px 20px; font-size: 1em; border-radius: 6px;">🚨 ドラフト全体をリセットする</button>
+                </section>
+                
+                <!-- 3.4 選手一覧フェーズ -->
+                <section id="draft-list-screen" class="player-phase" style="display:none;">
+                    <p><a href="#" onclick="showRankSelection(); return false;">&laquo; 順位選択画面に戻る</a></p>
+                    <h2 id="current-rank-title"></h2>
+                    
+                    <section id="draft-list">
+                        <h3>指名候補者一覧</h3>
+                        <ul id="candidates"></ul>
+                    </section>
+        
+                    <section id="action-area">
+                        <h3>指名アクション</h3>
+                        <select id="candidate-select"></select>
+                        <button id="draft-action-button" onclick="draftCandidate()">指名候補者を確定</button>
+                    </section>
+                </section>
+            </section>
+        </div>
     </main>
 
     <footer>
-        <p>&copy; 2025 Realtime Draft Tracker.</p>
+        <p>&copy; 2025 Draft Tracker. Powered by GitHub Pages.</p>
     </footer>
 
+    <!-- Firebaseの設定とJavaScriptパスワード -->
     <script>
-        // ⚠️ YOUR_API_KEYなどをここに貼り付けてください ⚠️
+        // 🚨 【設定済み】Firebaseプロジェクトの設定情報 🚨
         const firebaseConfig = {
- 　　　　　 apiKey: "AIzaSyDCl2wHaU-AGImjJ__yDPVnk1zmTt_aOpY",
- 　　　　　 authDomain: "draft-simulation-capcaseball.firebaseapp.com",
- 　　　　　 projectId: "draft-simulation-capcaseball",
-　　　　　  storageBucket: "draft-simulation-capcaseball.firebasestorage.app",
-　　　　　  messagingSenderId: "107955684673",
-　　　　　  appId: "1:107955684673:web:fe816be6b9d5af33c04dc0",
-　　　　　}; 
+            apiKey: "AIzaSyDCl2wHaU-AGImjJ__yDPVnk1zmTt_aOpY",
+            authDomain: "draft-simulation-capcaseball.firebaseapp.com",
+            projectId: "draft-simulation-capcaseball",
+            storageBucket: "draft-simulation-capcaseball.firebasestorage.app",
+            messagingSenderId: "107955684673",
+            appId: "1:107955684673:web:fe816be6b9d5af33c04dc0",
+            measurementId: "G-TZR89NPJKB"
+        };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
+        
+        // 🚨 【設定済み】管理者パスワード 🚨
+        const ADMIN_PASSWORD = "drafter2025"; 
     </script>
     <script src="script.js"></script>
 </body>
