@@ -138,7 +138,7 @@ function draftCandidate() {
         draft_info: firebase.firestore.FieldValue.arrayUnion({
             team: teamNumber,
             rank: selectedDraftRank,
-            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            timestamp: new Date()
         }),
         // 指名したチーム番号のリスト（表示用）
         drafted_by: firebase.firestore.FieldValue.arrayUnion(teamNumber) 
