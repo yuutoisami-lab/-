@@ -439,6 +439,43 @@ function finalizeRoundManual() {
 }
 
 
+// index.htmlで既に初期化された 'db' (Firestoreインスタンス) と ADMIN_PASSWORD を使用します。
+// ... (既存の変数定義は省略)
+
+// --- 指名アクションの関数、UI更新関数など (全て省略) ---
+
+// --- 参加者情報のみをリセットする関数 (指名記録は保持) ---
+function resetParticipants() {
+    if (!confirm("🚨 参加者情報のみリセット: 登録された全チームを解散し、チーム数設定を解除します。指名記録は保持されますが、各プレイヤーは再登録が必要です。続行しますか？")) {
+        return;
+    }
+    
+    // メタデータ（状態）のみをリセット
+    db.collection("metadata").doc("draft_state").update({ 
+        current_rank: 1, 
+        temporary_drafts: {},
+        total_teams: null, // チーム数設定を解除
+        registered_teams: {} // チーム登録情報を解除
+    })
+    .then(() => {
+        // ローカルストレージのチーム情報を削除 (全プレイヤーのブラウザで手動削除が必要だが、管理者側は通知のみ)
+        // 管理者自身の情報もリセット
+        localStorage.removeItem('userTeamNumber');
+        localStorage.removeItem('userTeamName');
+        userTeamNumber = null;
+        userTeamName = null;
+        
+        alert("✅ 参加者情報とチーム数設定がリセットされました。全プレイヤーに再登録を促してください。");
+        setView('admin-control');
+    })
+    .catch((error) => {
+        console.error("参加者リセットエラー:", error);
+        alert("参加者リセット中にエラーが発生しました。コンソールを確認してください。");
+    });
+}
+
+
+// --- ドラフト全体をリセットする関数 (既存のロジック) ---
 function resetDraft() {
     if (!confirm("🚨 管理者権限: 本当にドラフト全体をリセットし、最初からやり直しますか？")) { return; }
     
@@ -470,7 +507,9 @@ function resetDraft() {
         });
     });
 }
+// ... (その他の関数は省略。ただし、全コードは前回の最終版に基づいています)
 
+この修正により、管理者コントロールパネルに「**👥 参加者情報のみリセット**」ボタンが追加され、指名履歴を保持したままチーム構成をリセットできるようになりました。
 // --- 初期ロード時のルーティング ---
 window.onload = function() {
     const urlParams = new URLSearchParams(window.location.search);
