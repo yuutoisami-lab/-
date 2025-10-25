@@ -16,18 +16,39 @@
     </header>
 
     <main>
-        <section id="draft-list">
-            <h2>指名候補者一覧</h2>
-            <ul id="candidates">
-                <li>データ読み込み中...</li>
-            </ul>
+        <section id="rank-selection">
+            <h2>指名順位の選択 (1位〜7位)</h2>
+            <div id="draft-ranks">
+                <button class="rank-btn" onclick="selectRank(1)">ドラフト 1 位</button>
+                <button class="rank-btn" onclick="selectRank(2)">ドラフト 2 位</button>
+                <button class="rank-btn" onclick="selectRank(3)">ドラフト 3 位</button>
+                <button class="rank-btn" onclick="selectRank(4)">ドラフト 4 位</button>
+                <button class="rank-btn" onclick="selectRank(5)">ドラフト 5 位</button>
+                <button class="rank-btn" onclick="selectRank(6)">ドラフト 6 位</button>
+                <button class="rank-btn" onclick="selectRank(7)">ドラフト 7 位</button>
+            </div>
+            <p style="margin-top: 20px;">先に指名する順位を選択してください。</p>
         </section>
 
-        <section id="action-area">
-            <h2>指名アクション</h2>
-            <select id="candidate-select"></select>
-            <button onclick="draftCandidate()">この候補者を指名する</button>
-            <p style="margin-top: 10px; font-size: 0.9em;">（🚨この操作はデータベースを更新します）</p>
+
+        <section id="draft-list-screen" style="display:none;">
+            <p><a href="#" onclick="showRankSelection(); return false;">&laquo; 順位選択画面に戻る</a></p>
+            <h2 id="current-rank-title"></h2>
+            
+            <section id="draft-list">
+                <h3>指名候補者一覧</h3>
+                <ul id="candidates">
+                    <li>データ読み込み中...</li>
+                </ul>
+            </section>
+
+            <hr>
+            
+            <section id="action-area">
+                <h3>指名アクション</h3>
+                <select id="candidate-select"></select>
+                <button onclick="draftCandidate()">指名候補者を確定</button>
+            </section>
         </section>
     </main>
 
@@ -36,17 +57,8 @@
     </footer>
 
     <script>
-        // ⚠️ ここに、あなたのFirebaseプロジェクトの設定情報を貼り付けてください ⚠️
-        const firebaseConfig = {
-            apiKey: "AIzaSyDCl2wHaU-AGImjJ__yDPVnk1zmTt_aOpY", 
-            authDomain: "draft-simulation-capcaseball.firebaseapp.com",
-            projectId: "draft-simulation-capcaseball",
-            storageBucket: "draft-simulation-capcaseball.firebasestorage.app",
-            messagingSenderId: "107955684673",
-            appId: "1:107955684673:web:fe816be6b9d5af33c04dc0"
-        };
-
-        // Firebaseを初期化
+        // ⚠️ YOUR_API_KEYなどをここに貼り付けてください ⚠️
+        const firebaseConfig = { /* ... */ }; 
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
     </script>
