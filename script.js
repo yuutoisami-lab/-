@@ -1,145 +1,66 @@
 // index.htmlで既に初期化された 'db' (Firestoreインスタンス) を使用します。
 
-// --- 新しい変数と要素の取得 ---
+// --- 変数と要素の取得 ---
 const candidatesList = document.getElementById('candidates');
 const candidateSelect = document.getElementById('candidate-select');
 const teamSelectionScreen = document.getElementById('team-selection');
 const rankSelectionScreen = document.getElementById('rank-selection');
 const draftListScreen = document.getElementById('draft-list-screen');
 const currentRankTitle = document.getElementById('current-rank-title');
-const rankStatusMessage = document.getElementById('rank-status-message'); // 新しい要素を取得
+const rankStatusMessage = document.getElementById('rank-status-message');
+const draftActionButton = document.getElementById('draft-action-button'); // 指名ボタンのIDが必要になるため、index.htmlにIDを追加してください
 
 // 選択されたドラフト順位と参加チーム数
 let selectedDraftRank = null; 
 let totalTeamCount = null;
-// 🚨 システムが要求する現在の指名順位
+// システムが要求する現在の指名順位と仮指名の状態
 let currentSystemRank = 1; 
+let temporaryDrafts = {}; // { teamNumber: candidateId, ... } 形式で仮指名情報を保持
 
-// --- Firestoreから現在のシステムランクを取得するリスナー ---
+// --- Firestoreからのリアルタイム監視（メタデータと候補者リスト） ---
+
+// 1. メタデータ（現在の順位と仮指名情報）の監視
 db.collection("metadata").doc("draft_state").onSnapshot(doc => {
     if (doc.exists) {
         currentSystemRank = doc.data().current_rank || 1;
+        temporaryDrafts = doc.data().temporary_drafts || {};
     } else {
         // ドキュメントが存在しない場合、初期値として1位を設定
-        db.collection("metadata").doc("draft_state").set({ current_rank: 1 });
+        db.collection("metadata").doc("draft_state").set({ current_rank: 1, temporary_drafts: {} });
         currentSystemRank = 1;
+        temporaryDrafts = {};
     }
     
-    // ランク選択画面が表示されている場合、ボタンの状態を更新
+    // UI更新処理を実行
     if (rankSelectionScreen.style.display === 'block') {
         updateRankSelectionUI();
     }
+    if (draftListScreen.style.display === 'block') {
+        updateDraftActionUI();
+    }
 });
 
-// --- 順位選択UIを更新する関数 ---
-function updateRankSelectionUI() {
-    const rankButtons = document.querySelectorAll('#draft-ranks .rank-btn');
-
-    rankButtons.forEach(btn => {
-        // ボタンのテキストから順位を取得
-        const rank = parseInt(btn.textContent.match(/\d+/)[0]);
-
-        if (rank === currentSystemRank && currentSystemRank <= 7) {
-            // 現在の順位であれば有効化
-            btn.disabled = false;
-            btn.style.opacity = 1.0;
-            btn.style.backgroundColor = '#007bff';
-            btn.textContent = `▶️ ドラフト ${rank} 位を指名`;
-        } else {
-            // それ以外の順位は無効化
-            btn.disabled = true;
-            btn.style.opacity = 0.5;
-            btn.style.backgroundColor = '#6c757d';
-            btn.textContent = `ドラフト ${rank} 位 (待機中)`;
-        }
-    });
-
-    if (rankStatusMessage) {
-        if (currentSystemRank <= 7) {
-            rankStatusMessage.textContent = `🔥 次に指名すべき順位: ドラフト ${currentSystemRank} 位`;
-            rankStatusMessage.style.backgroundColor = '#d4edda'; 
-            rankStatusMessage.style.color = '#155724';
-        } else {
-            rankStatusMessage.textContent = `✅ ドラフトは終了しました。最終順位: 7 位`;
-            rankStatusMessage.style.backgroundColor = '#fff3cd';
-            rankStatusMessage.style.color = '#856404';
-            rankButtons.forEach(btn => btn.disabled = true);
-        }
-    }
-}
-
-
-// --- 画面遷移ロジック ---
-
-// 参加チーム設定画面を表示する
-function showTeamSelection() {
-    draftListScreen.style.display = 'none';
-    rankSelectionScreen.style.display = 'none';
-    teamSelectionScreen.style.display = 'block';
-    selectedDraftRank = null;
-}
-
-// 順位選択画面を表示する
-function showRankSelection() {
-    draftListScreen.style.display = 'none';
-    rankSelectionScreen.style.display = 'block';
-    teamSelectionScreen.style.display = 'none';
-    selectedDraftRank = null;
-    
-    // 順位選択UIを現在のシステムランクに基づいて更新
-    updateRankSelectionUI(); 
-}
-
-// チーム数を設定し、順位選択画面へ遷移する
-function setTeamCount(count) {
-    totalTeamCount = count;
-    alert(`${count}チームでドラフトを開始します。`);
-    showRankSelection(); 
-}
-
-
-// 順位を選択し、選手一覧画面へ遷移する（選択順序のチェックは指名時に行う）
-function selectRank(rank) {
-    // 🚨 選択順序の強制チェック
-    if (rank !== currentSystemRank) {
-        alert(`現在はドラフト ${currentSystemRank} 位の指名順です。`);
-        return;
-    }
-    
-    selectedDraftRank = rank;
-    currentRankTitle.textContent = `ドラフト ${rank} 位の指名候補者`;
-    
-    rankSelectionScreen.style.display = 'none';
-    draftListScreen.style.display = 'block';
-
-    console.log(`ドラフト ${rank} 位が選択されました。`);
-}
-
-
-// --- データベースからのリアルタイム監視（候補者リスト） ---
+// 2. 候補者リストの監視
 db.collection("candidates").onSnapshot((snapshot) => {
     candidatesList.innerHTML = '';
     candidateSelect.innerHTML = '';
     
     const candidates = [];
-    
     snapshot.forEach((doc) => {
         candidates.push({ id: doc.id, ...doc.data() });
     });
 
-    // 候補者リスト (ul/li) の生成
     candidates.forEach(candidate => {
         const li = document.createElement('li');
-        
         const draftCount = candidate.drafted_by ? candidate.drafted_by.length : 0;
         
         // --- 表示テキストの調整 ---
         let statusText = '👤 未指名';
+        li.setAttribute('data-status', 'un-drafted');
+        
         if (draftCount > 0) {
             statusText = `✅ ${draftCount} チームが指名済み`;
             li.setAttribute('data-status', 'drafted'); 
-        } else {
-            li.setAttribute('data-status', 'un-drafted');
         }
 
         li.textContent = `${candidate.name} (${statusText})`;
@@ -162,8 +83,96 @@ db.collection("candidates").onSnapshot((snapshot) => {
     });
 });
 
+// --- UI更新関数 ---
 
-// --- 指名アクションの関数（順序チェックと状態更新） ---
+// 順位選択UIを更新する関数
+function updateRankSelectionUI() {
+    const rankButtons = document.querySelectorAll('#draft-ranks .rank-btn');
+
+    rankButtons.forEach(btn => {
+        const rank = parseInt(btn.textContent.match(/\d+/)[0]);
+        if (rank === currentSystemRank && currentSystemRank <= 7) {
+            btn.disabled = false;
+            btn.style.opacity = 1.0;
+            btn.style.backgroundColor = '#007bff';
+            btn.textContent = `▶️ ドラフト ${rank} 位を指名`;
+        } else {
+            btn.disabled = true;
+            btn.style.opacity = 0.5;
+            btn.style.backgroundColor = '#6c757d';
+            btn.textContent = `ドラフト ${rank} 位 (待機中)`;
+        }
+    });
+
+    if (rankStatusMessage) {
+        if (currentSystemRank <= 7) {
+            // 現在の仮指名数を取得
+            const completedTeams = Object.keys(temporaryDrafts).length;
+            const remainingTeams = (totalTeamCount || 0) - completedTeams;
+
+            rankStatusMessage.textContent = 
+                `🔥 ${currentSystemRank} 位指名中！ (残り ${remainingTeams} チーム)`;
+            rankStatusMessage.style.backgroundColor = remainingTeams === 0 ? '#ffc107' : '#d4edda'; // 全員完了したら警告色に
+            rankStatusMessage.style.color = remainingTeams === 0 ? '#856404' : '#155724';
+        } else {
+            rankStatusMessage.textContent = `✅ ドラフトは終了しました。最終順位: 7 位`;
+            rankStatusMessage.style.backgroundColor = '#fff3cd';
+            rankStatusMessage.style.color = '#856404';
+            rankButtons.forEach(btn => btn.disabled = true);
+        }
+    }
+}
+
+// 指名アクションUIを更新する関数 (指名済みかどうか)
+function updateDraftActionUI() {
+    // ユーザー自身のチーム番号を取得するか、入力済みであればそれを表示するロジックが必要
+    // 今回は簡易化のため、毎回チーム番号を尋ねるプロンプトをそのまま使用します。
+
+    // 仮指名が完了しているかどうかの確認
+    // 💡 注意: この確認は、現在のセッションで入力したチーム番号と temporaryDrafts を照合して行う必要がありますが、
+    // チーム番号をグローバルに保持するロジックがないため、常に有効な状態を維持します。
+    // 代わりに、指名成功時に「指名完了」アラートを出すことでユーザーに伝えます。
+}
+
+// --- 画面遷移ロジック ---
+
+function showTeamSelection() {
+    draftListScreen.style.display = 'none';
+    rankSelectionScreen.style.display = 'none';
+    teamSelectionScreen.style.display = 'block';
+    selectedDraftRank = null;
+}
+
+function showRankSelection() {
+    draftListScreen.style.display = 'none';
+    rankSelectionScreen.style.display = 'block';
+    teamSelectionScreen.style.display = 'none';
+    selectedDraftRank = null;
+    updateRankSelectionUI(); 
+}
+
+function setTeamCount(count) {
+    totalTeamCount = count;
+    alert(`${count}チームでドラフトを開始します。`);
+    showRankSelection(); 
+}
+
+function selectRank(rank) {
+    if (rank !== currentSystemRank) {
+        alert(`現在はドラフト ${currentSystemRank} 位の指名順です。`);
+        return;
+    }
+    
+    selectedDraftRank = rank;
+    currentRankTitle.textContent = `ドラフト ${rank} 位の指名候補者`;
+    
+    rankSelectionScreen.style.display = 'none';
+    draftListScreen.style.display = 'block';
+    updateDraftActionUI();
+}
+
+
+// --- 指名アクションの関数（仮指名と一括確定） ---
 function draftCandidate() {
     const selectedId = candidateSelect.value;
     
@@ -182,12 +191,8 @@ function draftCandidate() {
         return;
     }
 
-    const candidateRef = db.collection("candidates").doc(selectedId);
-    
     let teamNumberInput = prompt(`指名を行うのは何番目のチームですか？ (1から${totalTeamCount}の数字を入力)`);
-    
     if (teamNumberInput === null) { return; }
-    
     let teamNumber = parseInt(teamNumberInput.trim()); 
 
     if (isNaN(teamNumber) || teamNumber < 1 || teamNumber > totalTeamCount) {
@@ -195,32 +200,69 @@ function draftCandidate() {
         return;
     }
 
-    // 重複を記録するために、Firestoreの配列操作 (arrayUnion) を使用
-    candidateRef.update({
-        draft_info: firebase.firestore.FieldValue.arrayUnion({
-            team: teamNumber,
-            rank: selectedDraftRank,
-            timestamp: new Date()
-        }),
-        drafted_by: firebase.firestore.FieldValue.arrayUnion(teamNumber) 
+    // 既にこのチームが仮指名済みかチェック
+    if (temporaryDrafts[teamNumber]) {
+        alert(`チーム ${teamNumber} は既に ${currentSystemRank} 位の指名を完了しています。`);
+        return;
+    }
+    
+    // --- 1. 仮指名の追加 ---
+    const newTemporaryDrafts = {
+        ...temporaryDrafts,
+        [teamNumber]: selectedId
+    };
+
+    db.collection("metadata").doc("draft_state").update({
+        temporary_drafts: newTemporaryDrafts
     })
     .then(() => {
-        // 成功したら次のランクに進める (7位までを強制)
-        if (currentSystemRank < 7) { 
-            return db.collection("metadata").doc("draft_state").update({
-                current_rank: currentSystemRank + 1
-            });
+        alert(`チーム ${teamNumber} の ${currentSystemRank} 位指名を受け付けました。他のチームの指名が完了するまでお待ちください。`);
+
+        // --- 2. 全員完了チェックと一括確定処理 ---
+        if (Object.keys(newTemporaryDrafts).length === totalTeamCount) {
+            
+            // 🚨 全員揃ったので一括確定処理を開始
+            alert(`🎉 全チームの指名が完了しました！ ${currentSystemRank} 位の指名結果を確定します...`);
+            return finalizeRound(newTemporaryDrafts);
         }
-        return Promise.resolve(); // 7位で終了
-    })
-    .then(() => {
-        alert(`チーム ${teamNumber} がドラフト ${selectedDraftRank} 位として指名しました！`);
-        showRankSelection(); 
+        showRankSelection(); // 仮指名を受け付けたら順位選択画面に戻る
     })
     .catch((error) => {
-        console.error("指名エラー: ", error);
+        console.error("仮指名エラー: ", error);
         alert("指名に失敗しました。コンソールを確認してください。");
     });
+}
+
+// --- 一括確定処理のコア関数 ---
+function finalizeRound(drafts) {
+    const batch = db.batch();
+    const rankToFinalize = currentSystemRank;
+
+    // 1. 各候補者ドキュメントに指名情報を反映
+    Object.keys(drafts).forEach(teamNumberStr => {
+        const teamNumber = parseInt(teamNumberStr);
+        const candidateId = drafts[teamNumberStr];
+        const candidateRef = db.collection("candidates").doc(candidateId);
+
+        // 配列に指名情報を追加
+        batch.update(candidateRef, {
+            draft_info: firebase.firestore.FieldValue.arrayUnion({
+                team: teamNumber,
+                rank: rankToFinalize,
+                timestamp: new Date()
+            }),
+            drafted_by: firebase.firestore.FieldValue.arrayUnion(teamNumber) 
+        });
+    });
+
+    // 2. メタデータ（状態）をリセットし、次の順位へ進める
+    const nextRank = rankToFinalize + 1;
+    batch.update(db.collection("metadata").doc("draft_state"), {
+        current_rank: nextRank,
+        temporary_drafts: {} // 仮指名リストを空にする
+    });
+
+    return batch.commit();
 }
 
 
@@ -248,7 +290,7 @@ function resetDraft() {
         batch.commit()
         .then(() => {
             // 2. システムの状態を1位にリセット
-            return db.collection("metadata").doc("draft_state").update({ current_rank: 1 });
+            return db.collection("metadata").doc("draft_state").update({ current_rank: 1, temporary_drafts: {} });
         })
         .then(() => {
             alert("✅ ドラフトはリセットされ、全候補者が未指名になりました。");
