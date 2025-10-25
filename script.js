@@ -93,11 +93,11 @@ db.collection("candidates").onSnapshot((snapshot) => {
 
         // --- プルダウンへの追加ロジック ---
         // 指名チーム数が総チーム数未満の場合、プルダウンに追加
-        if (totalTeamCount && draftCount < totalTeamCount) {
-            const option = document.createElement('option');
-            option.value = candidate.id;
-            option.textContent = `${candidate.name} (${draftCount} チーム指名)`;
-            candidateSelect.appendChild(option);
+        if (draftCount < (totalTeamCount || 1)) { // totalTeamCountがnull/0なら1として扱う
+            const option = document.createElement('option');
+            option.value = candidate.id;
+            option.textContent = `${candidate.name} (${draftCount} チーム指名)`;
+            candidateSelect.appendChild(option);
         }
     });
 });
