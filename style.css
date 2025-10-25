@@ -1,3 +1,52 @@
+/* --- チーム選択ボタンのスタイリング (新規追加) --- */
+
+#team-selection {
+    text-align: center;
+    padding: 40px 20px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+}
+
+#team-counts {
+    display: flex;
+    flex-wrap: wrap; 
+    justify-content: center;
+    gap: 15px; 
+    margin-top: 30px;
+    margin-bottom: 20px;
+}
+
+.team-btn {
+    background-color: #dc3545; /* 赤色 */
+    color: white;
+    border: none;
+    padding: 15px 25px;
+    font-size: 1.2em;
+    font-weight: bold;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+    min-width: 150px;
+}
+
+.team-btn:hover {
+    background-color: #c82333; /* ホバーで濃い赤 */
+    transform: translateY(-2px); 
+}
+
+/* 既存の .rank-btn と同様のスタイルを適用 */
+
+/* --- 既存の指名済みスタイル (重複指名に対応して調整) --- */
+/* draft_info配列の有無で判断するロジックに変わったため、
+   このスタイルは draftCount > 0 の場合に適用されるようになります */
+#candidates li[data-status="drafted"] {
+    background-color: #28a745; 
+    color: white; 
+    border-left: 5px solid #ffc107; 
+    font-weight: bold;
+    box-shadow: 0 2px 4px rgba(40, 167, 69, 0.4);
+}
 /* --- 順位選択ボタンのスタイリング --- */
 
 #rank-selection {
